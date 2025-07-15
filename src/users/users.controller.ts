@@ -129,4 +129,14 @@ export class UsersController {
   sendConfirmationToEmail(@Param('id') id: string) {
     return this.usersService.sendConfirmationToEmail(+id);
   }
+  @ApiOperation({ summary: "Activate User" })
+	@ApiResponse({
+		status: 200,
+		description: "message, is_active?",
+		type: Object,
+	})
+	@Get("activate/:link")
+	activateUser(@Param("link") link: string) {
+		return this.usersService.activation(link);
+	}
 }

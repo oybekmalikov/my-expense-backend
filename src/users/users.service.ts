@@ -9,13 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { MailService } from '../mail/mail.service';
-import {
-  UserCreateReturnType,
-  UserDeleteReturnType,
-  UserReadAllReturnType,
-  UserReadOneReturnType,
-  UserUpdateReturnType,
-} from '../types';
+
 import { ChangeUserEmailDto } from './dto/change-user-email.dto';
 import { ChangeUserPasswordDto } from './dto/change-user-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -27,7 +21,7 @@ export class UsersService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly mailService: MailService,
   ) {}
-  async create(createUserDto: CreateUserDto): Promise<UserCreateReturnType> {
+  async create(createUserDto: CreateUserDto) {
     const { email, hashshed_password, confirm_password } = createUserDto;
     const emailCheck = await this.userRepo.findOneBy({ email });
     if (emailCheck) {
@@ -58,7 +52,7 @@ export class UsersService {
     };
   }
 
-  async findAll(): Promise<UserReadAllReturnType> {
+  async findAll() {
     const allUser = await this.userRepo.find();
     if (!allUser.length) {
       return {
@@ -72,7 +66,7 @@ export class UsersService {
     };
   }
 
-  async findOne(id: number): Promise<UserReadOneReturnType> {
+  async findOne(id: number) {
     const user = await this.userRepo.findOneBy({ id });
     if (!user) {
       throw new NotFoundException('User not exists.');
@@ -82,11 +76,11 @@ export class UsersService {
       user,
     };
   }
+  async findByEmail(email: string) {
+    return this.userRepo.findOne({ where: { email } });
+  }
 
-  async update(
-    id: number,
-    updateUserDto: UpdateUserDto,
-  ): Promise<UserUpdateReturnType> {
+  async update(id: number, updateUserDto: UpdateUserDto) {
     const user = await this.userRepo.findOneBy({ id });
     if (!user) {
       throw new NotFoundException('User not exists.');
@@ -106,7 +100,7 @@ export class UsersService {
     };
   }
 
-  async remove(id: number): Promise<UserDeleteReturnType> {
+  async remove(id: number) {
     const isUserExists = await this.userRepo.findOneBy({ id });
     if (!isUserExists) {
       throw new NotFoundException('User not exists.');
@@ -178,6 +172,46 @@ export class UsersService {
     return {
       message: 'Conirmation successfully sent to email!',
       userId: id,
+    };
+  }
+  async updateRefreshToken(
+    userId: number,
+    refreshToken: string,
+  ): Promise<void> {
+    if (!refreshToken) {
+      await this.userRepo.update(userId, {
+        hashshed_refresh_token: '',
+      });
+    } else {
+      const hashedRefreshToken = await bcrypt.hash(refreshToken, 7);
+      await this.userRepo.update(userId, {
+        hashshed_refresh_token: hashedRefreshToken,
+      });
+    }
+  }
+  async activation(link: string) {
+    if (!link) {
+      throw new BadRequestException({
+        message: 'Activation link not found!',
+      });
+    }
+    const user = await this.userRepo.findOneBy({ unique_link: link });
+    if (!user) {
+      throw new BadRequestException({
+        message: 'User not found!',
+      });
+    }
+    const updatedUser = await this.userRepo.update(user.id, {
+      is_active: true,
+    });
+    if (!updatedUser) {
+      throw new BadRequestException({
+        message: 'User already activated.',
+      });
+    }
+    return {
+      message: 'User successfully activated!',
+      is_active: true,
     };
   }
 }
